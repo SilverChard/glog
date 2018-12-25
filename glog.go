@@ -20,17 +20,17 @@
 //
 // Basic examples:
 //
-//	glog.Info("Prepare to repel boarders")
+// 	glog.Info("Prepare to repel boarders")
 //
-//	glog.Fatalf("Initialization failed: %s", err)
+// 	glog.Fatalf("Initialization failed: %s", err)
 //
 // See the documentation for the V function for an explanation of these examples:
 //
-//	if glog.V(2) {
-//		glog.Info("Starting transaction...")
-//	}
+// 	if glog.V(2) {
+// 		glog.Info("Starting transaction...")
+// 	}
 //
-//	glog.V(2).Infoln("Processed", nItems, "elements")
+// 	glog.V(2).Infoln("Processed", nItems, "elements")
 //
 // Log output is buffered and written periodically using Flush. Programs
 // should call Flush before exiting to guarantee all log output is written.
@@ -39,34 +39,34 @@
 // This package provides several flags that modify this behavior.
 // As a result, flag.Parse must be called before any logging is done.
 //
-//	-logtostderr=false
-//		Logs are written to standard error instead of to files.
-//	-alsologtostderr=false
-//		Logs are written to standard error as well as to files.
-//	-stderrthreshold=ERROR
-//		Log events at or above this severity are logged to standard
-//		error as well as to files.
-//	-log_dir=""
-//		Log files will be written to this directory instead of the
-//		default temporary directory.
+// 	-logtostderr=false
+// 		Logs are written to standard error instead of to files.
+// 	-alsologtostderr=false
+// 		Logs are written to standard error as well as to files.
+// 	-stderrthreshold=ERROR
+// 		Log events at or above this severity are logged to standard
+// 		error as well as to files.
+// 	-log_dir=""
+// 		Log files will be written to this directory instead of the
+// 		default temporary directory.
 //
-//	Other flags provide aids to debugging.
+// 	Other flags provide aids to debugging.
 //
-//	-log_backtrace_at=""
-//		When set to a file and line number holding a logging statement,
-//		such as
-//			-log_backtrace_at=gopherflakes.go:234
-//		a stack trace will be written to the Info log whenever execution
-//		hits that statement. (Unlike with -vmodule, the ".go" must be
-//		present.)
-//	-v=0
-//		Enable V-leveled logging at the specified level.
-//	-vmodule=""
-//		The syntax of the argument is a comma-separated list of pattern=N,
-//		where pattern is a literal file name (minus the ".go" suffix) or
-//		"glob" pattern and N is a V level. For instance,
-//			-vmodule=gopher*=3
-//		sets the V level to 3 in all Go files whose names begin "gopher".
+// 	-log_backtrace_at=""
+// 		When set to a file and line number holding a logging statement,
+// 		such as
+// 			-log_backtrace_at=gopherflakes.go:234
+// 		a stack trace will be written to the Info log whenever execution
+// 		hits that statement. (Unlike with -vmodule, the ".go" must be
+// 		present.)
+// 	-v=0
+// 		Enable V-leveled logging at the specified level.
+// 	-vmodule=""
+// 		The syntax of the argument is a comma-separated list of pattern=N,
+// 		where pattern is a literal file name (minus the ".go" suffix) or
+// 		"glob" pattern and N is a V level. For instance,
+// 			-vmodule=gopher*=3
+// 		sets the V level to 3 in all Go files whose names begin "gopher".
 //
 package glog
 
@@ -402,6 +402,7 @@ func init() {
 	flag.Var(&logging.stderrThreshold, "stderrthreshold", "logs at or above this threshold go to stderr")
 	flag.Var(&logging.vmodule, "vmodule", "comma-separated list of pattern=N settings for file-filtered logging")
 	flag.Var(&logging.traceLocation, "log_backtrace_at", "when logging hits line file:N, emit a stack trace")
+	flag.StringVar(&logging.rotatingFlag, "rotatingFlag", "", "rotating log file every [Y]ear [M]onth [W]eek [D]ay [h]our [m]in [s]ec , empty mean no rotating.")
 
 	// Default stderrThreshold is ERROR.
 	logging.stderrThreshold = errorLog
@@ -453,6 +454,8 @@ type loggingT struct {
 	// safely using atomic.LoadInt32.
 	vmodule   moduleSpec // The state of the -vmodule flag.
 	verbosity Level      // V logging level, the value of the -v flag/
+
+	rotatingFlag string
 }
 
 // buffer holds a byte Buffer for reuse. The zero value is ready for use.
@@ -802,9 +805,10 @@ func (l *loggingT) exit(err error) {
 type syncBuffer struct {
 	logger *loggingT
 	*bufio.Writer
-	file   *os.File
-	sev    severity
-	nbytes uint64 // The number of bytes written to this file
+	file       *os.File
+	sev        severity
+	nbytes     uint64 // The number of bytes written to this file
+	rotateTime time.Time
 }
 
 func (sb *syncBuffer) Sync() error {
@@ -812,7 +816,7 @@ func (sb *syncBuffer) Sync() error {
 }
 
 func (sb *syncBuffer) Write(p []byte) (n int, err error) {
-	if sb.nbytes+uint64(len(p)) >= MaxSize {
+	if sb.nbytes+uint64(len(p)) >= MaxSize || !sb.rotateTime.After(time.Now()) {
 		if err := sb.rotateFile(time.Now()); err != nil {
 			sb.logger.exit(err)
 		}
@@ -848,6 +852,22 @@ func (sb *syncBuffer) rotateFile(now time.Time) error {
 	fmt.Fprintf(&buf, "Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg\n")
 	n, err := sb.file.Write(buf.Bytes())
 	sb.nbytes += uint64(n)
+	switch logging.rotatingFlag {
+	case "Y":
+		sb.rotateTime = time.Date(now.Year()+1, time.January, 1, 0, 0, 0, 0, time.Local)
+	case "M":
+		sb.rotateTime = time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.Local)
+	case "W":
+		sb.rotateTime = time.Date(now.Year(), now.Month(), now.Day()+7-int(now.Weekday())+1, 0, 0, 0, 0, time.Local)
+	case "D":
+		sb.rotateTime = time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, time.Local)
+	case "h":
+		sb.rotateTime = time.Date(now.Year(), now.Month(), now.Day(), now.Hour()+1, 0, 0, 0, time.Local)
+	case "m":
+		sb.rotateTime = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute()+1, 0, 0, time.Local)
+	case "s":
+		sb.rotateTime = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second()+1, 0, time.Local)
+	}
 	return err
 }
 
@@ -986,9 +1006,9 @@ type Verbose bool
 // The returned value is a boolean of type Verbose, which implements Info, Infoln
 // and Infof. These methods will write to the Info log if called.
 // Thus, one may write either
-//	if glog.V(2) { glog.Info("log this") }
+// 	if glog.V(2) { glog.Info("log this") }
 // or
-//	glog.V(2).Info("log this")
+// 	glog.V(2).Info("log this")
 // The second form is shorter but the first is cheaper if logging is off because it does
 // not evaluate its arguments.
 //
