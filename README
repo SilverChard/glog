@@ -2,4 +2,7 @@ glog
 ====
 forked from https://github.com/golang/glog
 
-Add -rotating_time for rotate log every xxx time
+Add -rotate_flag
+    rotate log file every [Y]ear [M]onth [W]eek [D]ay [h]our [m]in [s]ec , empty mean no rotate.
+For Example:
+    -rotate_flag=D means rotate file every day.

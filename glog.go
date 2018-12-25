@@ -402,7 +402,7 @@ func init() {
 	flag.Var(&logging.stderrThreshold, "stderrthreshold", "logs at or above this threshold go to stderr")
 	flag.Var(&logging.vmodule, "vmodule", "comma-separated list of pattern=N settings for file-filtered logging")
 	flag.Var(&logging.traceLocation, "log_backtrace_at", "when logging hits line file:N, emit a stack trace")
-	flag.StringVar(&logging.rotatingFlag, "rotatingFlag", "", "rotating log file every [Y]ear [M]onth [W]eek [D]ay [h]our [m]in [s]ec , empty mean no rotating.")
+	flag.StringVar(&logging.rotateFlag, "rotate_flag", "", "rotate log file every [Y]ear [M]onth [W]eek [D]ay [h]our [m]in [s]ec , empty mean no rotate.")
 
 	// Default stderrThreshold is ERROR.
 	logging.stderrThreshold = errorLog
@@ -455,7 +455,7 @@ type loggingT struct {
 	vmodule   moduleSpec // The state of the -vmodule flag.
 	verbosity Level      // V logging level, the value of the -v flag/
 
-	rotatingFlag string
+	rotateFlag string
 }
 
 // buffer holds a byte Buffer for reuse. The zero value is ready for use.
@@ -852,7 +852,7 @@ func (sb *syncBuffer) rotateFile(now time.Time) error {
 	fmt.Fprintf(&buf, "Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg\n")
 	n, err := sb.file.Write(buf.Bytes())
 	sb.nbytes += uint64(n)
-	switch logging.rotatingFlag {
+	switch logging.rotateFlag {
 	case "Y":
 		sb.rotateTime = time.Date(now.Year()+1, time.January, 1, 0, 0, 0, 0, time.Local)
 	case "M":

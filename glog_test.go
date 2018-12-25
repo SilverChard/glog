@@ -416,7 +416,7 @@ func BenchmarkHeader(b *testing.B) {
 
 func TestRolloverByTime(t *testing.T) {
 	setFlags()
-	logging.rotatingFlag = "s"
+	logging.rotateFlag = "s"
 	var err error
 	defer func(previous func(error)) { logExitFunc = previous }(logExitFunc)
 	logExitFunc = func(e error) {
