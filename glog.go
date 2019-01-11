@@ -649,6 +649,15 @@ func (l *loggingT) printDepth(s severity, depth int, args ...interface{}) {
 	l.output(s, buf, file, line, false)
 }
 
+func (l *loggingT) printfDepth(s severity, depth int, format string, args ...interface{}) {
+	buf, file, line := l.header(s, depth)
+	fmt.Fprintf(buf, format, args...)
+	if buf.Bytes()[buf.Len()-1] != '\n' {
+		buf.WriteByte('\n')
+	}
+	l.output(s, buf, file, line, false)
+}
+
 func (l *loggingT) printf(s severity, format string, args ...interface{}) {
 	buf, file, line := l.header(s, 0)
 	fmt.Fprintf(buf, format, args...)
@@ -816,7 +825,8 @@ func (sb *syncBuffer) Sync() error {
 }
 
 func (sb *syncBuffer) Write(p []byte) (n int, err error) {
-	if sb.nbytes+uint64(len(p)) >= MaxSize || !sb.rotateTime.After(time.Now()) {
+	println(fmt.Sprintf("sb.rotateTime:%+v time:%+v", sb.rotateTime, time.Time{}))
+	if sb.nbytes+uint64(len(p)) >= MaxSize || (sb.rotateTime != time.Time{} && !sb.rotateTime.After(time.Now())) {
 		if err := sb.rotateFile(time.Now()); err != nil {
 			sb.logger.exit(err)
 		}
@@ -867,6 +877,8 @@ func (sb *syncBuffer) rotateFile(now time.Time) error {
 		sb.rotateTime = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute()+1, 0, 0, time.Local)
 	case "s":
 		sb.rotateTime = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second()+1, 0, time.Local)
+	default:
+		sb.rotateTime = time.Time{}
 	}
 	return err
 }
@@ -895,7 +907,7 @@ func (l *loggingT) createFiles(sev severity) error {
 	return nil
 }
 
-const flushInterval = 30 * time.Second
+const flushInterval = 1 * time.Second
 
 // flushDaemon periodically flushes the log file buffers.
 func (l *loggingT) flushDaemon() {
@@ -1081,6 +1093,11 @@ func InfoDepth(depth int, args ...interface{}) {
 	logging.printDepth(infoLog, depth, args...)
 }
 
+// InfofDepth acts as Infof but uses depth to determine which call frame to log.
+func InfofDepth(depth int, format string, args ...interface{}) {
+	logging.printfDepth(infoLog, depth, format, args...)
+}
+
 // Infoln logs to the INFO log.
 // Arguments are handled in the manner of fmt.Println; a newline is appended if missing.
 func Infoln(args ...interface{}) {
@@ -1103,6 +1120,9 @@ func Warning(args ...interface{}) {
 // WarningDepth(0, "msg") is the same as Warning("msg").
 func WarningDepth(depth int, args ...interface{}) {
 	logging.printDepth(warningLog, depth, args...)
+}
+func WarningfDepth(depth int, format string, args ...interface{}) {
+	logging.printfDepth(warningLog, depth, format, args...)
 }
 
 // Warningln logs to the WARNING and INFO logs.
@@ -1129,6 +1149,10 @@ func ErrorDepth(depth int, args ...interface{}) {
 	logging.printDepth(errorLog, depth, args...)
 }
 
+func ErrorfDepth(depth int, format string, args ...interface{}) {
+	logging.printfDepth(errorLog, depth, format, args...)
+}
+
 // Errorln logs to the ERROR, WARNING, and INFO logs.
 // Arguments are handled in the manner of fmt.Println; a newline is appended if missing.
 func Errorln(args ...interface{}) {
@@ -1152,6 +1176,9 @@ func Fatal(args ...interface{}) {
 // FatalDepth(0, "msg") is the same as Fatal("msg").
 func FatalDepth(depth int, args ...interface{}) {
 	logging.printDepth(fatalLog, depth, args...)
+}
+func FatalfDepth(depth int, format string, args ...interface{}) {
+	logging.printfDepth(fatalLog, depth, format, args...)
 }
 
 // Fatalln logs to the FATAL, ERROR, WARNING, and INFO logs,
