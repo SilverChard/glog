@@ -825,7 +825,6 @@ func (sb *syncBuffer) Sync() error {
 }
 
 func (sb *syncBuffer) Write(p []byte) (n int, err error) {
-	println(fmt.Sprintf("sb.rotateTime:%+v time:%+v", sb.rotateTime, time.Time{}))
 	if sb.nbytes+uint64(len(p)) >= MaxSize || (sb.rotateTime != time.Time{} && !sb.rotateTime.After(time.Now())) {
 		if err := sb.rotateFile(time.Now()); err != nil {
 			sb.logger.exit(err)
