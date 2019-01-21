@@ -816,8 +816,8 @@ type syncBuffer struct {
 	*bufio.Writer
 	file       *os.File
 	sev        severity
-	nbytes     uint64 // The number of bytes written to this file
-	rotateTime time.Time
+	nbytes     uint64    // The number of bytes written to this file
+	rotateTime time.Time // rotate file when rotateTime
 }
 
 func (sb *syncBuffer) Sync() error {
@@ -861,25 +861,72 @@ func (sb *syncBuffer) rotateFile(now time.Time) error {
 	fmt.Fprintf(&buf, "Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg\n")
 	n, err := sb.file.Write(buf.Bytes())
 	sb.nbytes += uint64(n)
+	sb.genRotateTime(now)
+	return err
+}
+
+func (sb *syncBuffer) genRotateTime(now time.Time) {
 	switch logging.rotateFlag {
+	// year
+	case "year":
+		fallthrough
+	case "Year":
+		fallthrough
 	case "Y":
 		sb.rotateTime = time.Date(now.Year()+1, time.January, 1, 0, 0, 0, 0, time.Local)
+	// month
+	case "Month":
+		fallthrough
+	case "month":
+		fallthrough
 	case "M":
 		sb.rotateTime = time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.Local)
+	// week
+	case "Week":
+		fallthrough
+	case "week":
+		fallthrough
 	case "W":
 		sb.rotateTime = time.Date(now.Year(), now.Month(), now.Day()+7-int(now.Weekday())+1, 0, 0, 0, 0, time.Local)
+	// day
+	case "Day":
+		fallthrough
+	case "day":
+		fallthrough
 	case "D":
 		sb.rotateTime = time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, time.Local)
+	// hour
+	case "Hour":
+		fallthrough
+	case "hour":
+		fallthrough
 	case "h":
 		sb.rotateTime = time.Date(now.Year(), now.Month(), now.Day(), now.Hour()+1, 0, 0, 0, time.Local)
+	// minute
+	case "Minute":
+		fallthrough
+	case "minute":
+		fallthrough
+	case "Min":
+		fallthrough
+	case "min":
+		fallthrough
 	case "m":
 		sb.rotateTime = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute()+1, 0, 0, time.Local)
+	// second
+	case "Second":
+		fallthrough
+	case "second":
+		fallthrough
+	case "Sec":
+		fallthrough
+	case "sec":
+		fallthrough
 	case "s":
 		sb.rotateTime = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second()+1, 0, time.Local)
 	default:
 		sb.rotateTime = time.Time{}
 	}
-	return err
 }
 
 // bufferSize sizes the buffer associated with each log file. It's large

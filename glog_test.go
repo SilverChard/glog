@@ -456,3 +456,89 @@ func TestRolloverByTime(t *testing.T) {
 		t.Errorf("info.f.Name did not change: %v", fname0)
 	}
 }
+
+func TestRolloverByTime2(t *testing.T) {
+	setFlags()
+	logging.rotateFlag = "d"
+	var err error
+	defer func(previous func(error)) { logExitFunc = previous }(logExitFunc)
+	logExitFunc = func(e error) {
+		err = e
+	}
+	defer func(previous uint64) { MaxSize = previous }(MaxSize)
+
+	Info("x") // Be sure we have a file.
+	info, ok := logging.file[infoLog].(*syncBuffer)
+	if !ok {
+		t.Fatal("info wasn't created")
+	}
+	if err != nil {
+		t.Fatalf("info has initial error: %v", err)
+	}
+
+	fname0 := info.file.Name()
+	Info("x") // force a rollover
+	if err != nil {
+		t.Fatalf("info has error after write: %v", err)
+	}
+
+	// Make sure the next log file gets a file name with a different
+	// time stamp.
+	//
+	// TODO: determine whether we need to support subsecond log
+	// rotation.  C++ does not appear to handle this case (nor does it
+	// handle Daylight Savings Time properly).
+	time.Sleep(3 * time.Second)
+
+	Info("x") // create a new file
+	if err != nil {
+		t.Fatalf("error after rotation: %v", err)
+	}
+	fname1 := info.file.Name()
+	if fname0 != fname1 {
+		t.Errorf("info.f.Name changed: %v", fname0)
+	}
+}
+
+func TestRolloverByTime3(t *testing.T) {
+	setFlags()
+	var err error
+	defer func(previous func(error)) { logExitFunc = previous }(logExitFunc)
+	logExitFunc = func(e error) {
+		err = e
+	}
+	defer func(previous uint64) { MaxSize = previous }(MaxSize)
+
+	Info("x") // Be sure we have a file.
+	info, ok := logging.file[infoLog].(*syncBuffer)
+	if !ok {
+		t.Fatal("info wasn't created")
+	}
+	if err != nil {
+		t.Fatalf("info has initial error: %v", err)
+	}
+
+	fname0 := info.file.Name()
+	Info("x") // force a rollover
+	if err != nil {
+		t.Fatalf("info has error after write: %v", err)
+	}
+
+	// Make sure the next log file gets a file name with a different
+	// time stamp.
+	//
+	// TODO: determine whether we need to support subsecond log
+	// rotation.  C++ does not appear to handle this case (nor does it
+	// handle Daylight Savings Time properly).
+	time.Sleep(3 * time.Second)
+
+	Info("x") // create a new file
+	if err != nil {
+		t.Fatalf("error after rotation: %v", err)
+	}
+	fname1 := info.file.Name()
+	println(fname0, fname1)
+	if fname0 != fname1 {
+		t.Errorf("info.f.Name changed: %v", fname0)
+	}
+}
