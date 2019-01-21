@@ -404,11 +404,24 @@ func init() {
 	flag.Var(&logging.traceLocation, "log_backtrace_at", "when logging hits line file:N, emit a stack trace")
 	flag.StringVar(&logging.rotateFlag, "rotate_flag", "", "rotate log file every [Y]ear [M]onth [W]eek [D]ay [h]our [m]in [s]ec , empty mean no rotate.")
 
+	logNameFunc = logName
+
 	// Default stderrThreshold is ERROR.
 	logging.stderrThreshold = errorLog
 
 	logging.setVState(0, nil, false)
 	go logging.flushDaemon()
+}
+
+// set LogNameFunc func allow set custom log name
+// func(tag string, t time.Time) (name, link string)
+// input tag : level of log
+// input t   : start time of log
+// return name : log file name
+// return link : link of new log
+// warning: log name should support rotate_flag. for example: your rotate_flag is [s]ec but your LogNameFunc just generate name by days
+func SetLogNameFunc(customLogNameFunc LogNameFunc) {
+	logNameFunc = customLogNameFunc
 }
 
 // Flush flushes all pending log I/O.

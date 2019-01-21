@@ -78,21 +78,26 @@ func shortHostname(hostname string) string {
 	return hostname
 }
 
+// custom log name
+type LogNameFunc func(tag string, t time.Time) (name, link string)
+
+var logNameFunc LogNameFunc
+
 // logName returns a new log file name containing tag, with start time t, and
 // the name for the symlink for tag.
 func logName(tag string, t time.Time) (name, link string) {
 	name = fmt.Sprintf("%s.%s.%s.log.%s.%04d%02d%02d-%02d%02d%02d.%d",
-		program,
-		host,
-		userName,
-		tag,
-		t.Year(),
-		t.Month(),
-		t.Day(),
-		t.Hour(),
-		t.Minute(),
-		t.Second(),
-		pid)
+		program,    // ___go_build_cloudcontent_go  	.silver.silver.log.WARNING.20190111-151614.16076 		name of application
+		host,       // .silver 							.silver.log.WARNING.20190111-151614.16076	 			name of machine
+		userName,   // .silver 							.log.WARNING.20190111-151614.16076 						name of user
+		tag,        // WARNING 							.20190111-151614.16076 									level of log
+		t.Year(),   // 2019 							0111-151614.16076 										log start time: year
+		t.Month(),  // 01 								11-151614.16076											log start time: month
+		t.Day(),    // 11								-151614.16076 											log start time: day
+		t.Hour(),   // 15								1614.16076 												log start time: hour
+		t.Minute(), // 16								14.16076 												log start time: hour
+		t.Second(), // 14								.16076 													log start time: hour
+		pid)        // 	   16076																					PID
 	return name, program + "." + tag
 }
 
@@ -107,10 +112,25 @@ func create(tag string, t time.Time) (f *os.File, filename string, err error) {
 	if len(logDirs) == 0 {
 		return nil, "", errors.New("log: no log dirs")
 	}
-	name, link := logName(tag, t)
+	name, link := logNameFunc(tag, t)
 	var lastErr error
 	for _, dir := range logDirs {
 		fname := filepath.Join(dir, name)
+		// loop for create a not duplicate log name
+		newLogName := fname
+		for i := 0; ; i++ {
+			if i != 0 {
+				newLogName = fmt.Sprintf("%s.%d", fname, i)
+			}
+			_, existErr := os.Stat(newLogName)
+			exist := existErr == nil || os.IsExist(existErr)
+			if !exist {
+				// 不存在 可以使用此名字
+				fname = newLogName
+				break
+			}
+		}
+
 		f, err := os.Create(fname)
 		if err == nil {
 			symlink := filepath.Join(dir, link)
