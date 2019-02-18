@@ -1140,6 +1140,18 @@ func (v Verbose) Infof(format string, args ...interface{}) {
 	}
 }
 
+func (v Verbose) InfoDepth(depth int, args ...interface{}) {
+	if v {
+		logging.printDepth(infoLog, depth, args...)
+	}
+}
+
+func (v Verbose) InfofDepth(depth int, format string, args ...interface{}) {
+	if v {
+		logging.printfDepth(infoLog, depth, format, args...)
+	}
+}
+
 // Info logs to the INFO log.
 // Arguments are handled in the manner of fmt.Print; a newline is appended if missing.
 func Info(args ...interface{}) {
